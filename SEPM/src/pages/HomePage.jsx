@@ -1,145 +1,326 @@
-// HomePage.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { getRecommendations, searchRecipes } from '../services/apiService';
 
 const HomePage = () => {
+  const { currentUser } = useAuth();
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [recommendations, setRecommendations] = useState([]);
+  const [popularRecipes, setPopularRecipes] = useState([]);
+  const [quickRecipes, setQuickRecipes] = useState([]);
+
+  // Fetch user profile and recommendations
+  useEffect(() => {
+    const fetchUserData = async () => {
+      setLoading(true);
+      
+      try {
+        // Get popular recipes regardless of user login
+        const popularResult = await searchRecipes('', {
+          sort: 'popularity',
+          number: 4
+        });
+        
+        if (popularResult && popularResult.results) {
+          setPopularRecipes(popularResult.results);
+        }
+        
+        // Get quick recipes
+        const quickResult = await searchRecipes('', {
+          maxReadyTime: 30,
+          sort: 'time',
+          number: 4
+        });
+        
+        if (quickResult && quickResult.results) {
+          setQuickRecipes(quickResult.results);
+        }
+        
+        // If user is logged in, get personalized recommendations
+        if (currentUser) {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          
+          if (userDoc.exists() && userDoc.data().healthProfile) {
+            const healthProfile = userDoc.data().healthProfile;
+            setUserProfile(healthProfile);
+            
+            // Get personalized recommendations
+            const recommendResult = await getRecommendations(healthProfile, { number: 8 });
+            
+            if (recommendResult && recommendResult.results) {
+              setRecommendations(recommendResult.results);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to load recommendations. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserData();
+  }, [currentUser]);
+
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Hero Section */}
-      <section className="container mx-auto py-12 px-4 md:py-20">
-        <div className="flex flex-col md:flex-row items-center">
-          <div className="md:w-1/2 mb-8 md:mb-0">
-            <div className="flex items-center mb-6">
-            <img src="/logo.png" alt="NutriGen Bot Logo" className="h-16 mr-4" />
-              <h1 className="text-4xl md:text-5xl font-bold text-emerald-700">NUTRIGEN BOT</h1>
-            </div>
-            <h2 className="text-2xl md:text-3xl text-emerald-600 mb-6">Your Daily Diet Assistant</h2>
-            <p className="text-gray-600 mb-8">
-              Healthy food is essential for maintaining overall well-being, as it provides
-              the necessary nutrients, vitamins, and minerals that support bodily
-              functions, boost the immune system, and reduce the risk of chronic
-              diseases such as diabetes, heart disease, and obesity. Choose your own
-              healthy food recipe based on your diet, health issues in a minute!
-            </p>
-            <div className="flex space-x-4">
-              <Link to="/signup" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded">
-                Sign Up
+      <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-xl overflow-hidden mb-12">
+        <div className="px-6 py-12 md:px-12 md:py-16 text-center">
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            Discover Healthy Recipes Tailored for You
+          </h1>
+          <p className="text-lg md:text-xl text-green-100 mb-8 max-w-3xl mx-auto">
+            Find recipes that match your dietary preferences, health goals, and food allergies.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link 
+              to="/search" 
+              className="px-6 py-3 bg-white text-green-600 rounded-md hover:bg-green-50 shadow-md font-medium"
+            >
+              Search Recipes
+            </Link>
+            {!currentUser ? (
+              <Link 
+                to="/signup" 
+                className="px-6 py-3 bg-green-700 text-white border border-green-400 rounded-md hover:bg-green-800 shadow-md font-medium"
+              >
+                Sign Up for Personalized Recipes
               </Link>
-              <Link to="/login" className="bg-white hover:bg-gray-100 text-emerald-700 border border-emerald-600 font-bold py-2 px-6 rounded">
-                Log In
+            ) : !userProfile ? (
+              <Link 
+                to="/profile" 
+                className="px-6 py-3 bg-green-700 text-white border border-green-400 rounded-md hover:bg-green-800 shadow-md font-medium"
+              >
+                Complete Your Health Profile
               </Link>
-            </div>
-          </div>
-          <div className="md:w-1/2">
-            <img
-              src="https://images.unsplash.com/photo-1551326844-4df70f78d0e9?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80"
-              alt="Healthy Food"
-              className="rounded-lg shadow-xl"
-            />
+            ) : null}
           </div>
         </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="bg-emerald-50 py-12 px-4 md:py-20">
-        <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-emerald-700 mb-12">How NutriGen Bot Works</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-emerald-700 mb-2">Create Your Profile</h3>
-              <p className="text-gray-600">Enter your health details like weight, height, gender, age, and dietary preferences.</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-emerald-700 mb-2">Get Personalized Recipes</h3>
-              <p className="text-gray-600">Receive recipe recommendations tailored to your health profile and diet goals.</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-emerald-700 mb-2">Save & Plan Meals</h3>
-              <p className="text-gray-600">Save your favorite recipes and create meal plans for better nutrition management.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Recipe Recommendations */}
-      <section className="container mx-auto py-12 px-4 md:py-20">
-        <h2 className="text-3xl font-bold text-center text-emerald-700 mb-12">Recommended Recipes</h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          {/* Recipe Card 1 */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <img 
-              src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-              alt="Healthy Salad" 
-              className="w-full h-48 object-cover"
-            />
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-2">
-                <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded">Low Calorie</span>
-                <span className="text-gray-500 text-sm">320 calories</span>
-              </div>
-              <h3 className="text-xl font-semibold text-emerald-700 mb-2">Mediterranean Salad Bowl</h3>
-              <p className="text-gray-600 mb-4">Fresh vegetables with olive oil and feta cheese for a perfect light lunch.</p>
-              <button className="text-emerald-600 hover:text-emerald-800 font-semibold">View Recipe →</button>
-            </div>
+      </div>
+      
+      {/* Personalized Recommendations Section */}
+      {currentUser && userProfile && recommendations.length > 0 && (
+        <div className="mb-12">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">
+              Your Personalized Recommendations
+            </h2>
+            <Link to="/search" className="text-green-600 hover:text-green-700 font-medium text-sm">
+              View all →
+            </Link>
           </div>
           
-          {/* Recipe Card 2 */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <img 
-              src="https://images.unsplash.com/photo-1490645935967-10de6ba17061?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-              alt="Protein Bowl" 
-              className="w-full h-48 object-cover"
-            />
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-2">
-                <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded">High Protein</span>
-                <span className="text-gray-500 text-sm">450 calories</span>
-              </div>
-              <h3 className="text-xl font-semibold text-emerald-700 mb-2">Quinoa Protein Bowl</h3>
-              <p className="text-gray-600 mb-4">A balanced meal with quinoa, grilled chicken, and fresh vegetables.</p>
-              <button className="text-emerald-600 hover:text-emerald-800 font-semibold">View Recipe →</button>
-            </div>
-          </div>
-          
-          {/* Recipe Card 3 */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <img 
-              src="https://images.unsplash.com/photo-1495214783159-3503fd1b572d?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-              alt="Smoothie Bowl" 
-              className="w-full h-48 object-cover"
-            />
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-2">
-                <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded">Vegan</span>
-                <span className="text-gray-500 text-sm">280 calories</span>
-              </div>
-              <h3 className="text-xl font-semibold text-emerald-700 mb-2">Berry Smoothie Bowl</h3>
-              <p className="text-gray-600 mb-4">Refreshing smoothie bowl with mixed berries, banana, and chia seeds.</p>
-              <button className="text-emerald-600 hover:text-emerald-800 font-semibold">View Recipe →</button>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {recommendations.slice(0, 4).map(recipe => (
+              <Link
+                key={recipe.id}
+                to={`/recipe/${recipe.id}`}
+                className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300"
+              >
+                <div className="relative h-48">
+                  <img
+                    src={recipe.image}
+                    alt={recipe.title}
+                    className="w-full h-full object-cover"
+                  />
+                  {recipe.readyInMinutes && (
+                    <div className="absolute top-0 right-0 bg-green-500 text-white px-2 py-1 m-2 rounded text-xs font-medium">
+                      {recipe.readyInMinutes} mins
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2 line-clamp-2">
+                    {recipe.title}
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {recipe.vegetarian && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Vegetarian
+                      </span>
+                    )}
+                    {recipe.vegan && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Vegan
+                      </span>
+                    )}
+                    {recipe.glutenFree && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Gluten Free
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
-        <div className="text-center mt-10">
-          <button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded">
-            Explore All Recipes
-          </button>
+      )}
+      
+      {/* Popular Recipes Section */}
+      <div className="mb-12">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">
+            Popular Recipes
+          </h2>
+          <Link to="/search?sort=popularity" className="text-green-600 hover:text-green-700 font-medium text-sm">
+            View all →
+          </Link>
         </div>
-      </section>
+        
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-lg overflow-hidden shadow-md">
+                <div className="h-48 bg-gray-200 animate-pulse"></div>
+                <div className="p-4">
+                  <div className="h-6 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {popularRecipes.map(recipe => (
+              <Link
+                key={recipe.id}
+                to={`/recipe/${recipe.id}`}
+                className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300"
+              >
+                <div className="relative h-48">
+                  <img
+                    src={recipe.image}
+                    alt={recipe.title}
+                    className="w-full h-full object-cover"
+                  />
+                  {recipe.readyInMinutes && (
+                    <div className="absolute top-0 right-0 bg-green-500 text-white px-2 py-1 m-2 rounded text-xs font-medium">
+                      {recipe.readyInMinutes} mins
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2 line-clamp-2">
+                    {recipe.title}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {recipe.vegetarian && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Vegetarian
+                      </span>
+                    )}
+                    {recipe.vegan && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Vegan
+                      </span>
+                    )}
+                    {recipe.glutenFree && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Gluten Free
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Quick Meals Section */}
+      <div className="mb-12">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">
+            Quick Meals (Under 30 Minutes)
+          </h2>
+          <Link to="/search?maxReadyTime=30" className="text-green-600 hover:text-green-700 font-medium text-sm">
+            View all →
+          </Link>
+        </div>
+        
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-lg overflow-hidden shadow-md">
+                <div className="h-48 bg-gray-200 animate-pulse"></div>
+                <div className="p-4">
+                  <div className="h-6 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {quickRecipes.map(recipe => (
+              <Link
+                key={recipe.id}
+                to={`/recipe/${recipe.id}`}
+                className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300"
+              >
+                <div className="relative h-48">
+                  <img
+                    src={recipe.image}
+                    alt={recipe.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-0 right-0 bg-green-500 text-white px-2 py-1 m-2 rounded text-xs font-medium">
+                    {recipe.readyInMinutes} mins
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2 line-clamp-2">
+                    {recipe.title}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {recipe.vegetarian && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Vegetarian
+                      </span>
+                    )}
+                    {recipe.vegan && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Vegan
+                      </span>
+                    )}
+                    {recipe.glutenFree && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Gluten Free
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Call to Action */}
+      {!currentUser && (
+        <div className="bg-gray-50 rounded-xl p-8 text-center">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+            Get Personalized Recipe Recommendations
+          </h2>
+          <p className="text-gray-600 mb-6 max-w-3xl mx-auto">
+            Create an account and complete your health profile to receive personalized recipe recommendations based on your dietary preferences, health goals, and food allergies.
+          </p>
+          <Link
+            to="/signup"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
+          >
+            Sign Up Now
+          </Link>
+        </div>
+      )}
     </div>
   );
 };

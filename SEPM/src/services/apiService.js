@@ -1,143 +1,202 @@
 // src/services/apiService.js
-import axios from 'axios';
-
-// Spoonacular API configuration
-const API_KEY = 'eeb775beabdd459eb5f8e5983978fff1';
+const API_KEY = '1c2cb4541bed45058be2c24ef6efe661';
 const BASE_URL = 'https://api.spoonacular.com';
 
-// Create Axios instance with default configurations
-const apiClient = axios.create({
-  baseURL: BASE_URL,
-  params: {
-    apiKey: API_KEY
+// Rate limiting variables
+let lastCallTime = null;
+const MIN_CALL_INTERVAL = 1000; // Minimum 1 second between API calls
+
+// Helper function to respect rate limits
+const throttledFetch = async (url) => {
+  // Check if we need to wait before making another call
+  if (lastCallTime) {
+    const timeSinceLastCall = Date.now() - lastCallTime;
+    if (timeSinceLastCall < MIN_CALL_INTERVAL) {
+      // Wait for the remaining time
+      await new Promise(resolve => setTimeout(resolve, MIN_CALL_INTERVAL - timeSinceLastCall));
+    }
   }
-});
+  
+  // Make the API call
+  lastCallTime = Date.now();
+  return fetch(url);
+};
 
-// Mock data for fallback in case API is unavailable
-const mockRecipes = [
-  {
-    id: 1,
-    title: 'Mediterranean Salad Bowl',
-    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd',
-    calories: 320,
-    dietType: 'Low Calorie',
-    readyInMinutes: 15,
-    servings: 2,
-    summary: 'Fresh vegetables with olive oil and feta cheese for a perfect light lunch.'
-  },
-  {
-    id: 2,
-    title: 'Quinoa Protein Bowl',
-    image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061',
-    calories: 450,
-    dietType: 'High Protein',
-    readyInMinutes: 25,
-    servings: 2,
-    summary: 'A balanced meal with quinoa, grilled chicken, and fresh vegetables.'
-  },
-  {
-    id: 3,
-    title: 'Berry Smoothie Bowl',
-    image: 'https://images.unsplash.com/photo-1495214783159-3503fd1b572d',
-    calories: 280,
-    dietType: 'Vegan',
-    readyInMinutes: 10,
-    servings: 1,
-    summary: 'Refreshing smoothie bowl with mixed berries, banana, and chia seeds.'
-  }
-];
-
-// API Service for recipe operations
-const RecipeService = {
-  // Search recipes with complex filtering
-  searchRecipes: async (params) => {
-    try {
-      const response = await apiClient.get('/recipes/complexSearch', {
-        params: {
-          ...params,
-          addRecipeNutrition: true,
-          number: 12
-        }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching recipes:', error);
-      // Return mock data if API fails
-      return { results: mockRecipes };
+// Build query URL with parameters
+const buildUrl = (endpoint, params = {}) => {
+  const url = new URL(`${BASE_URL}${endpoint}`);
+  
+  // Add API key to params
+  url.searchParams.append('apiKey', API_KEY);
+  
+  // Add other params
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.append(key, value);
     }
-  },
+  });
+  
+  return url;
+};
 
-  // Get recipes by ingredients
-  getRecipesByIngredients: async (ingredients, number = 10) => {
-    try {
-      const response = await apiClient.get('/recipes/findByIngredients', {
-        params: {
-          ingredients: ingredients.join(','),
-          number
-        }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching recipes by ingredients:', error);
-      return mockRecipes;
-    }
-  },
-
-  // Get recipes by nutrients
-  getRecipesByNutrients: async (params) => {
-    try {
-      const response = await apiClient.get('/recipes/findByNutrients', {
-        params: {
-          ...params,
-          number: 10
-        }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching recipes by nutrients:', error);
-      return mockRecipes;
-    }
-  },
-
-  // Get recipe details by ID
-  getRecipeDetails: async (id) => {
-    try {
-      const response = await apiClient.get(`/recipes/${id}/information`, {
-        params: {
-          includeNutrition: true
-        }
-      });
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching recipe details for ID ${id}:`, error);
-      // Return a mock recipe if API fails
-      return mockRecipes.find(recipe => recipe.id === id) || mockRecipes[0];
-    }
-  },
-
-  // Get personalized recommendations based on user profile
-  getPersonalizedRecipes: async (userProfile) => {
-    // Extract relevant user data for recipe recommendations
-    const { diet, intolerances, excludeIngredients, targetCalories } = userProfile;
+// Search recipes
+export const searchRecipes = async (query, params = {}) => {
+  try {
+    const url = buildUrl('/recipes/complexSearch', {
+      query,
+      addRecipeInformation: true,
+      fillIngredients: true,
+      ...params
+    });
     
-    try {
-      const response = await apiClient.get('/recipes/complexSearch', {
-        params: {
-          diet,
-          intolerances,
-          excludeIngredients,
-          maxCalories: targetCalories,
-          addRecipeNutrition: true,
-          number: 6,
-          sort: 'random'
-        }
-      });
-      return response.data.results;
-    } catch (error) {
-      console.error('Error fetching personalized recipes:', error);
-      return mockRecipes;
+    const response = await throttledFetch(url);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to search recipes');
     }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error searching recipes:', error);
+    throw error;
   }
 };
 
-export default RecipeService;
+// Get recipe by ID
+export const getRecipeById = async (id) => {
+  try {
+    const url = buildUrl(`/recipes/${id}/information`, {
+      includeNutrition: true
+    });
+    
+    const response = await throttledFetch(url);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to get recipe');
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error getting recipe:', error);
+    throw error;
+  }
+};
+
+// Get similar recipes
+export const getSimilarRecipes = async (id) => {
+  try {
+    const url = buildUrl(`/recipes/${id}/similar`, {
+      number: 4
+    });
+    
+    const response = await throttledFetch(url);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to get similar recipes');
+    }
+    
+    const data = await response.json();
+    
+    // Fetch full details for each similar recipe
+    const detailedRecipes = await Promise.all(
+      data.map(async (recipe) => {
+        try {
+          return await getRecipeById(recipe.id);
+        } catch (error) {
+          console.error(`Error fetching details for recipe ${recipe.id}:`, error);
+          return recipe; // Return basic info if detailed fetch fails
+        }
+      })
+    );
+    
+    return detailedRecipes;
+  } catch (error) {
+    console.error('Error getting similar recipes:', error);
+    throw error;
+  }
+};
+
+// Get recipe recommendations based on user profile
+export const getRecommendations = async (healthProfile, params = {}) => {
+  try {
+    // Build parameters based on health profile
+    const recommendationParams = { ...params };
+    
+    // Add dietary restrictions
+    if (healthProfile?.dietaryRestrictions?.length > 0) {
+      recommendationParams.diet = healthProfile.dietaryRestrictions[0]; // API only accepts one diet
+    }
+    
+    // Add allergies/intolerances
+    if (healthProfile?.allergies?.length > 0) {
+      recommendationParams.intolerances = healthProfile.allergies.join(',');
+    }
+    
+    // Set calorie range if target calories are available
+    if (healthProfile?.targetCalories) {
+      const targetCal = healthProfile.targetCalories;
+      recommendationParams.minCalories = Math.round(targetCal * 0.9);
+      recommendationParams.maxCalories = Math.round(targetCal * 1.1);
+    }
+    
+    // Other recommendation parameters
+    recommendationParams.sort = 'random';
+    recommendationParams.number = params.number || 10;
+    
+    return await searchRecipes('', recommendationParams);
+  } catch (error) {
+    console.error('Error getting recommendations:', error);
+    throw error;
+  }
+};
+
+// Get recipes by ingredients
+export const getRecipesByIngredients = async (ingredients, params = {}) => {
+  try {
+    const url = buildUrl('/recipes/findByIngredients', {
+      ingredients: ingredients.join(','),
+      number: params.number || 10,
+      ranking: 2, // Maximize used ingredients
+      ...params
+    });
+    
+    const response = await throttledFetch(url);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to find recipes by ingredients');
+    }
+    
+    const data = await response.json();
+    
+    // Get detailed information for each recipe
+    const recipeDetails = await Promise.all(
+      data.map(async (recipe) => {
+        try {
+          return await getRecipeById(recipe.id);
+        } catch (error) {
+          console.error(`Error fetching details for recipe ${recipe.id}:`, error);
+          return recipe; // Return basic info if detailed fetch fails
+        }
+      })
+    );
+    
+    return recipeDetails;
+  } catch (error) {
+    console.error('Error finding recipes by ingredients:', error);
+    throw error;
+  }
+};
+
+export default {
+  searchRecipes,
+  getRecipeById,
+  getSimilarRecipes,
+  getRecommendations,
+  getRecipesByIngredients
+};
