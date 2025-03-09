@@ -1,20 +1,328 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <link rel="icon" href="%PUBLIC_URL%/images/Logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#047857" />
+    <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="NutriGen Bot - 개인 맞춤형 영양 & 레시피 추천 웹사이트"
+      content="NutriGen Bot - Your personalized recipe recommendation app"
     />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/images/Logo.png" />
+    <!--
+      manifest.json provides metadata used when your web app is installed on a
+      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
+    -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <!--
+      Notice the use of %PUBLIC_URL% in the tags above.
+      It will be replaced with the URL of the `public` folder during the build.
+      Only files inside the `public` folder can be referenced from the HTML.
+
+      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
+      work correctly both with client-side routing and a non-root public URL.
+      Learn how to configure a non-root public URL by running `npm run build`.
+    -->
     <title>NutriGen Bot</title>
-  </head>
+    <style id="search-sidebar-styles">
+    .search-button {
+      position: fixed;
+      top: 50%;
+      right: 0;
+      transform: translateY(-50%);
+      width: 60px;
+      height: 60px;
+      background-color: #7E22CE;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-top-left-radius: 100%;
+      border-bottom-left-radius: 100%;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      z-index: 10000;
+      border: 2px solid white;
+    }
+    
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(126, 34, 206, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 10px rgba(126, 34, 206, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(126, 34, 206, 0);
+      }
+    }
+    
+    .search-button {
+      animation: pulse 2s infinite;
+    }
+  </style>
+  <style id="search-button-styles">
+    #search-button-fixed {
+      position: fixed;
+      top: 50%;
+      right: 0;
+      transform: translateY(-50%);
+      width: 60px;
+      height: 60px;
+      background-color: #7E22CE;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-top-left-radius: 30px;
+      border-bottom-left-radius: 30px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      z-index: 10000;
+      border: 2px solid white;
+      transition: all 0.3s ease;
+    }
+    
+    #search-button-fixed:hover {
+      background-color: #6B21A8;
+      transform: translateY(-50%) scale(1.05);
+    }
+    
+    #search-sidebar {
+      position: fixed;
+      top: 0;
+      right: -320px;
+      width: 320px;
+      height: 100%;
+      background-color: white;
+      box-shadow: -2px 0 15px rgba(0, 0, 0, 0.2);
+      z-index: 10001;
+      padding: 20px;
+      transition: right 0.3s ease;
+      overflow-y: auto;
+    }
+    
+    #search-sidebar.open {
+      right: 0;
+    }
+    
+    .keyword-tag {
+      display: inline-flex;
+      align-items: center;
+      background-color: #F3E8FF;
+      color: #7E22CE;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin: 4px;
+    }
+    
+    .keyword-remove {
+      background: none;
+      border: none;
+      color: #7E22CE;
+      cursor: pointer;
+      margin-left: 4px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+    }
+    
+    .search-input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #D1D5DB;
+      border-radius: 4px 0 0 4px;
+      outline: none;
+    }
+    
+    .search-add-btn {
+      background-color: #7E22CE;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+    }
+    
+    .search-btn {
+      width: 100%;
+      padding: 8px 16px;
+      border-radius: 4px;
+      background-color: #7E22CE;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 16px;
+      font-weight: 500;
+    }
+    
+    .search-btn:disabled {
+      background-color: #D1D5DB;
+      color: #6B7280;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
   <body>
-    <noscript>이 앱을 실행하려면 JavaScript를 활성화해야 합니다.</noscript>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-  </body>
+    <!--
+      This HTML file is a template.
+      If you open it directly in the browser, you will see an empty page.
+
+      You can add webfonts, meta tags, or analytics to this file.
+      The build step will place the bundled scripts into the <body> tag.
+
+      To begin the development, run `npm start` or `yarn start`.
+      To create a production bundle, use `npm run build` or `yarn build`.
+    -->
+    <div id="search-button-fixed">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  </div>
+  
+  <div id="search-sidebar">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h2 style="font-size: 1.25rem; font-weight: 600;">Search Recipes</h2>
+      <button id="close-sidebar" style="background: none; border: none; cursor: pointer;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    
+    <div style="margin-bottom: 16px;">
+      <label for="keyword-input" style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 4px;">
+        Add Keywords
+      </label>
+      <div style="display: flex;">
+        <input
+          type="text"
+          id="keyword-input"
+          class="search-input"
+          placeholder="Enter a keyword"
+        />
+        <button id="add-keyword" class="search-add-btn">
+          Add
+        </button>
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 16px;">
+      <p style="font-size: 0.875rem; font-weight: 500; margin-bottom: 8px;">Your Keywords:</p>
+      <div id="keywords-container" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+    </div>
+    
+    <button id="search-recipes" class="search-btn" disabled>
+      Search Recipes
+    </button>
+  </div>
+  
+  <script>
+    // Add this script to handle the search button and sidebar
+    document.addEventListener('DOMContentLoaded', function() {
+      const searchButton = document.getElementById('search-button-fixed');
+      const sidebar = document.getElementById('search-sidebar');
+      const closeBtn = document.getElementById('close-sidebar');
+      const keywordInput = document.getElementById('keyword-input');
+      const addKeywordBtn = document.getElementById('add-keyword');
+      const keywordsContainer = document.getElementById('keywords-container');
+      const searchBtn = document.getElementById('search-recipes');
+      
+      let keywords = [];
+      
+      // Toggle sidebar
+      searchButton.addEventListener('click', function() {
+        sidebar.classList.add('open');
+      });
+      
+      closeBtn.addEventListener('click', function() {
+        sidebar.classList.remove('open');
+      });
+      
+      // Add keyword
+      function addKeyword() {
+        const keyword = keywordInput.value.trim();
+        if (keyword && !keywords.includes(keyword)) {
+          keywords.push(keyword);
+          keywordInput.value = '';
+          renderKeywords();
+          updateSearchButton();
+        }
+      }
+      
+      addKeywordBtn.addEventListener('click', addKeyword);
+      
+      keywordInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          addKeyword();
+        }
+      });
+      
+      // Remove keyword
+      function removeKeyword(keyword) {
+        keywords = keywords.filter(k => k !== keyword);
+        renderKeywords();
+        updateSearchButton();
+      }
+      
+      // Render keywords
+      function renderKeywords() {
+        keywordsContainer.innerHTML = '';
+        
+        if (keywords.length === 0) {
+          keywordsContainer.innerHTML = '<p style="color: #6B7280; font-size: 0.875rem;">No keywords added yet.</p>';
+          return;
+        }
+        
+        keywords.forEach(keyword => {
+          const tag = document.createElement('div');
+          tag.className = 'keyword-tag';
+          tag.innerHTML = `
+            <span>${keyword}</span>
+            <button class="keyword-remove" data-keyword="${keyword}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          `;
+          
+          keywordsContainer.appendChild(tag);
+        });
+        
+        // Add event listeners to remove buttons
+        document.querySelectorAll('.keyword-remove').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const keyword = this.getAttribute('data-keyword');
+            removeKeyword(keyword);
+          });
+        });
+      }
+      
+      // Update search button state
+      function updateSearchButton() {
+        if (keywords.length > 0) {
+          searchBtn.disabled = false;
+        } else {
+          searchBtn.disabled = true;
+        }
+      }
+      
+      // Handle search
+      searchBtn.addEventListener('click', function() {
+        if (keywords.length > 0) {
+          const queryParams = new URLSearchParams();
+          keywords.forEach(k => queryParams.append('keyword', k));
+          window.location.href = `/recipes?${queryParams.toString()}`;
+          sidebar.classList.remove('open');
+        }
+      });
+      
+      // Initialize
+      renderKeywords();
+    });
+  </script>
+</body>
 </html>

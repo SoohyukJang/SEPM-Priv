@@ -1,350 +1,272 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getRecipeById, getSimilarRecipes } from '../services/apiService';
-import { useAuth } from '../contexts/AuthContext';
-import { doc, setDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { getRecipeById, getSimilarRecipes, saveRecipe, removeRecipe } from '../services/apiService';
+import { useAuth } from '../hooks/useAuth';
+import NutritionFacts from '../components/recipes/NutritionFacts';
+import RecipeCard from '../components/recipes/RecipeCard';
+import Loader from '../components/common/Loader';
 
 const RecipeDetail = () => {
   const { id } = useParams();
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const [recipe, setRecipe] = useState(null);
   const [similarRecipes, setSimilarRecipes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
-  const [saveLoading, setSaveLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('ingredients');
 
   useEffect(() => {
     const fetchRecipe = async () => {
       try {
-        setLoading(true);
-        const data = await getRecipeById(id);
-        setRecipe(data);
+        setIsLoading(true);
         
-        // Check if recipe is saved
-        if (currentUser) {
-          const savedRef = doc(db, 'users', currentUser.uid, 'savedRecipes', id);
-          const savedDoc = await getDoc(savedRef);
-          setIsSaved(savedDoc.exists());
+        // Fetch recipe details
+        const recipeData = await getRecipeById(id);
+        setRecipe(recipeData);
+        
+        // Check if recipe is saved by user
+        if (user) {
+          // Here you would check if the recipe is saved by the user
+          // This is a placeholder implementation
+          setIsSaved(false);
         }
         
-        // Get similar recipes
+        // Fetch similar recipes
         const similar = await getSimilarRecipes(id);
         setSimilarRecipes(similar);
+        
+        setError(null);
       } catch (err) {
         console.error('Error fetching recipe:', err);
-        setError('Failed to load recipe. Please try again.');
+        setError('Failed to load recipe. Please try again later.');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
     
     fetchRecipe();
-  }, [id, currentUser]);
+  }, [id, user]);
 
   const handleSaveRecipe = async () => {
-    if (!currentUser) {
-      alert('Please log in to save recipes');
+    if (!user) {
+      // Redirect to login or show login prompt
       return;
     }
     
     try {
-      setSaveLoading(true);
-      const recipeRef = doc(db, 'users', currentUser.uid, 'savedRecipes', id);
-      
       if (isSaved) {
-        // Remove from saved recipes
-        await deleteDoc(recipeRef);
+        await removeRecipe(user.uid, recipe.id);
         setIsSaved(false);
       } else {
-        // Add to saved recipes
-        await setDoc(recipeRef, {
-          recipeId: id,
+        await saveRecipe(user.uid, {
+          id: recipe.id,
           title: recipe.title,
           image: recipe.image,
-          savedAt: serverTimestamp()
+          readyInMinutes: recipe.readyInMinutes,
+          servings: recipe.servings,
+          healthScore: recipe.healthScore
         });
         setIsSaved(true);
       }
     } catch (err) {
       console.error('Error saving recipe:', err);
-      alert('Failed to save recipe. Please try again.');
-    } finally {
-      setSaveLoading(false);
     }
   };
 
-  if (loading) {
+  if (isLoading) {
+    return <Loader />;
+  }
+
+  if (error) {
     return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-3/4 mb-4"></div>
-          <div className="h-64 bg-gray-200 rounded w-full mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-5/6 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-4/6 mb-4"></div>
-          <div className="h-40 bg-gray-200 rounded w-full"></div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+          <p>{error}</p>
+        </div>
+        <div className="mt-4">
+          <Link to="/recipes" className="text-green-600 hover:text-green-700">
+            &larr; Back to Recipes
+          </Link>
         </div>
       </div>
     );
   }
 
-  if (error || !recipe) {
-    return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="bg-red-50 border-l-4 border-red-500 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-9v4a1 1 0 11-2 0v-4a1 1 0 112 0zm0-4a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error || 'Recipe not found'}</p>
-            </div>
-          </div>
-        </div>
-        <Link to="/search" className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700">
-          Back to Search
-        </Link>
-      </div>
-    );
+  if (!recipe) {
+    return null;
   }
-
-  // Process recipe data
-  const ingredients = recipe.extendedIngredients || [];
-  const instructions = recipe.analyzedInstructions && recipe.analyzedInstructions.length > 0
-    ? recipe.analyzedInstructions[0].steps
-    : [];
-  
-  // Extract nutrition data
-  const nutrients = recipe.nutrition && recipe.nutrition.nutrients
-    ? recipe.nutrition.nutrients.filter(n => 
-        ['Calories', 'Fat', 'Carbohydrates', 'Protein', 'Fiber', 'Sugar'].includes(n.name)
-      )
-    : [];
-  
-  // Function to render HTML content safely
-  const renderHTML = (html) => {
-    return { __html: html };
-  };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* Recipe Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">{recipe.title}</h1>
-        <div className="flex flex-wrap items-center gap-4 mb-4">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-            <svg className="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-            </svg>
-            {recipe.readyInMinutes} minutes
-          </span>
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-            <svg className="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-            </svg>
-            {recipe.servings} servings
-          </span>
-          {recipe.vegetarian && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-              Vegetarian
-            </span>
-          )}
-          {recipe.vegan && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-              Vegan
-            </span>
-          )}
-          {recipe.glutenFree && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-              Gluten Free
-            </span>
-          )}
-          {recipe.dairyFree && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-              Dairy Free
-            </span>
-          )}
-        </div>
-        
-        <button
-          onClick={handleSaveRecipe}
-          disabled={saveLoading}
-          className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
-            isSaved
-              ? 'bg-red-600 hover:bg-red-700 text-white'
-              : 'bg-green-600 hover:bg-green-700 text-white'
-          }`}
-        >
-          {saveLoading ? (
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : isSaved ? (
-            <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M9.707 7.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L12 8.586l-2.293-2.293z" clipRule="evenodd" />
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .971.527 1.715 1.324 2.246.836.556 1.935.866 3.676.866 1.742 0 2.84-.31 3.676-.866.797-.53 1.324-1.275 1.324-2.246 0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 5.092V5zm1 4a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 10.234 6 11.009 6 12c0 .971.527 1.715 1.324 2.246.836.556 1.935.866 3.676.866 1.742 0 2.84-.31 3.676-.866.797-.53 1.324-1.275 1.324-2.246 0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V9z" clipRule="evenodd" />
-            </svg>
-          ) : (
-            <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
-            </svg>
-          )}
-          {isSaved ? 'Remove from Saved' : 'Save Recipe'}
-        </button>
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-4">
+        <Link to="/recipes" className="text-green-600 hover:text-green-700">
+          &larr; Back to Recipes
+        </Link>
       </div>
       
-      {/* Recipe Image and Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        <div>
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {/* Recipe Header */}
+        <div className="relative">
           <img
             src={recipe.image}
             alt={recipe.title}
-            className="w-full h-auto rounded-lg shadow-md object-cover"
+            className="w-full h-64 object-cover"
+            onError={(e) => {e.target.onerror = null; e.target.src = 'https://via.placeholder.com/800x400?text=Recipe+Image'}}
           />
-        </div>
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">About this recipe</h2>
-          <div
-            className="prose max-w-none"
-            dangerouslySetInnerHTML={renderHTML(recipe.summary)}
-          />
-        </div>
-      </div>
-      
-      {/* Recipe Content Tabs */}
-      <div className="mb-8">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('ingredients')}
-              className={`${
-                activeTab === 'ingredients'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              Ingredients
-            </button>
-            <button
-              onClick={() => setActiveTab('instructions')}
-              className={`${
-                activeTab === 'instructions'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              Instructions
-            </button>
-            <button
-              onClick={() => setActiveTab('nutrition')}
-              className={`${
-                activeTab === 'nutrition'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              Nutrition
-            </button>
-          </nav>
-        </div>
-        
-        <div className="mt-8">
-          {activeTab === 'ingredients' && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Ingredients</h2>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {ingredients.map((ingredient, index) => (
-                  <li key={index} className="flex items-start py-2">
-                    <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <span>
-                      <span className="font-medium">{ingredient.amount} {ingredient.unit}</span> {ingredient.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+          <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent"></div>
+          <div className="absolute bottom-0 left-0 p-6">
+            <h1 className="text-3xl font-bold text-white mb-2">{recipe.title}</h1>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {recipe.diets && recipe.diets.map((diet, index) => (
+                <span key={index} className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm capitalize">
+                  {diet}
+                </span>
+              ))}
+              {recipe.vegetarian && (
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">Vegetarian</span>
+              )}
+              {recipe.vegan && (
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">Vegan</span>
+              )}
+              {recipe.glutenFree && (
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">Gluten Free</span>
+              )}
+              {recipe.dairyFree && (
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">Dairy Free</span>
+              )}
             </div>
-          )}
-          
-          {activeTab === 'instructions' && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Instructions</h2>
-              <ol className="space-y-4 list-decimal list-inside">
-                {instructions.length > 0 ? (
-                  instructions.map((step) => (
-                    <li key={step.number} className="ml-6">
-                      <span className="ml-2">{step.step}</span>
-                    </li>
-                  ))
-                ) : (
-                  <div
-                    className="prose max-w-none mt-2"
-                    dangerouslySetInnerHTML={renderHTML(recipe.instructions || 'No instructions available.')}
-                  />
-                )}
-              </ol>
-            </div>
-          )}
-          
-          {activeTab === 'nutrition' && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Nutrition Information</h2>
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
-                  <dl className="sm:divide-y sm:divide-gray-200">
-                    {nutrients.map((nutrient, index) => (
-                      <div key={index} className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt className="text-sm font-medium text-gray-500">{nutrient.name}</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                          {nutrient.amount} {nutrient.unit}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
+            <div className="flex flex-wrap gap-6 text-white">
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{recipe.readyInMinutes} minutes</span>
+              </div>
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span>{recipe.servings} servings</span>
+              </div>
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                <span>Health Score: {recipe.healthScore}%</span>
               </div>
             </div>
-          )}
+          </div>
+          <button 
+            onClick={handleSaveRecipe}
+            className={`absolute top-4 right-4 p-2 rounded-full ${
+              isSaved ? 'bg-red-500 text-white' : 'bg-white text-red-500'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill={isSaved ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
+        </div>
+        
+        {/* Recipe Content */}
+        <div className="p-6">
+          {/* Tabs */}
+          <div className="border-b border-gray-200 mb-6">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('ingredients')}
+                className={`pb-4 font-medium ${
+                  activeTab === 'ingredients' 
+                    ? 'border-b-2 border-green-500 text-green-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Ingredients
+              </button>
+              <button
+                onClick={() => setActiveTab('instructions')}
+                className={`pb-4 font-medium ${
+                  activeTab === 'instructions' 
+                    ? 'border-b-2 border-green-500 text-green-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Instructions
+              </button>
+              <button
+                onClick={() => setActiveTab('nutrition')}
+                className={`pb-4 font-medium ${
+                  activeTab === 'nutrition' 
+                    ? 'border-b-2 border-green-500 text-green-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Nutrition Facts
+              </button>
+            </nav>
+          </div>
+          
+          {/* Tab Content */}
+          <div>
+            {/* Ingredients Tab */}
+            {activeTab === 'ingredients' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Ingredients</h2>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {recipe.extendedIngredients && recipe.extendedIngredients.map((ingredient, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="text-green-500 mr-2">•</span>
+                      <span>{ingredient.original}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {/* Instructions Tab */}
+            {activeTab === 'instructions' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Cooking Instructions</h2>
+                {recipe.analyzedInstructions && recipe.analyzedInstructions.length > 0 ? (
+                  <ol className="list-decimal list-inside space-y-4">
+                    {recipe.analyzedInstructions[0].steps.map(step => (
+                      <li key={step.number} className="ml-4">
+                        <span className="font-medium">Step {step.number}: </span>
+                        {step.step}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <div className="text-gray-600">
+                    <p>{recipe.instructions || 'No detailed instructions available for this recipe.'}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Nutrition Tab */}
+            {activeTab === 'nutrition' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Nutrition Facts</h2>
+                {recipe.nutrition ? (
+                  <NutritionFacts nutrition={recipe.nutrition} />
+                ) : (
+                  <p className="text-gray-600">Nutrition information not available for this recipe.</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       
       {/* Similar Recipes */}
       {similarRecipes.length > 0 && (
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">You might also like</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {similarRecipes.map((recipe) => (
-              <Link
-                key={recipe.id}
-                to={`/recipe/${recipe.id}`}
-                className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300"
-              >
-                <div className="relative h-48">
-                  <img
-                    src={recipe.image}
-                    alt={recipe.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2 line-clamp-2">
-                    {recipe.title}
-                  </h3>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <svg className="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                    </svg>
-                    {recipe.readyInMinutes} mins
-                  </div>
-                </div>
-              </Link>
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold mb-6">Similar Recipes You Might Like</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {similarRecipes.map(similarRecipe => (
+              <RecipeCard key={similarRecipe.id} recipe={similarRecipe} />
             ))}
           </div>
         </div>

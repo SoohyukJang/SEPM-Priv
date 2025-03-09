@@ -25,3 +25,51 @@ code {
 .backdrop-blur-sm {
   backdrop-filter: blur(4px);
 }
+
+
+/* Search Sidebar Styles */
+.search-button {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9999;
+  background-color: #6D28D9;
+  color: white;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.search-button:hover {
+  background-color: #5B21B6;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.search-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 320px;
+  background-color: white;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  transition: transform 0.3s ease-in-out;
+}
+
+.search-sidebar.closed {
+  transform: translateX(100%);
+}
+
+.search-sidebar.open {
+  transform: translateX(0);
+}
