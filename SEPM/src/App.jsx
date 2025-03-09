@@ -17,7 +17,6 @@ import AboutPage from './pages/AboutPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import { AuthProvider } from './contexts/AuthContext';
-import SearchSidebar from './components/common/SearchSidebar';
 
 function App() {
   return (
@@ -44,7 +43,6 @@ function App() {
             </Routes>
           </main>
           <Footer />
-          <SearchSidebar />
         </div>
       </Router>
     </AuthProvider>
