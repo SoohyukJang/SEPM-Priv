@@ -6,23 +6,22 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        emerald: {
-          50: '#ecfdf5',
-          100: '#d1fae5',
-          200: '#a7f3d0',
-          300: '#6ee7b7',
-          400: '#34d399',
-          500: '#10b981',
-          600: '#059669',
-          700: '#047857',
-          800: '#065f46',
-          900: '#064e3b',
+        cream: {
+          50: '#faf7f2',
+          100: '#f5f0e5',
+          200: '#e9dfc7',
+          300: '#d9c8a7',
+          400: '#c9b28a',
+          500: '#b89b6c',
+          600: '#a78655',
+          700: '#8a6f48',
+          800: '#6e593b',
+          900: '#574832',
         },
-        cream: '#FFF8E1',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-      }
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+      },
     },
   },
   plugins: [],

@@ -1,60 +1,61 @@
-// src/App.jsx
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-
-// Context Providers
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { RecipeProvider } from './contexts/RecipeContext';
 
-// Common components
-import PublicRoute from './components/common/PublicRoute';
-import PrivateRoute from './components/common/PrivateRoute';
+// Import common components
 import Header from './components/common/Header';
 import Footer from './components/common/Footer';
+import OfflineNotice from './components/common/OfflineNotice';
 
-// Pages
+// Import pages
 import HomePage from './pages/HomePage';
-import SearchPage from './pages/SearchPage';
-import RecipeDetail from './pages/RecipeDetail';
-import ProfilePage from './pages/ProfilePage';
+import AboutPage from './pages/AboutPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
-import AboutPage from './pages/AboutPage';
+import ProfilePage from './pages/ProfilePage';
+import RecipeDetail from './pages/RecipeDetail';
+import SearchPage from './pages/SearchPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BlogPage from './pages/BlogPage';
 import BlogDetailPage from './pages/BlogDetailPage';
 import BlogCreatePage from './pages/BlogCreatePage';
 import BlogEditPage from './pages/BlogEditPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 
-const App = () => {
+function App() {
   return (
-    <AuthProvider>
-      <RecipeProvider>
-        <Router>
+    <Router>
+      <AuthProvider>
+        <RecipeProvider>
           <div className="flex flex-col min-h-screen">
+            <OfflineNotice />
             <Header />
             <main className="flex-grow">
               <Routes>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/recipe/:id" element={<RecipeDetail />} />
-                <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-                <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-                <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
                 <Route path="/about" element={<AboutPage />} />
-                <Route path="/blogs" element={<BlogPage />} />
-                <Route path="/blogs/:id" element={<BlogDetailPage />} />
-                <Route path="/blogs/create" element={<BlogCreatePage />} />
-                <Route path="/blogs/edit/:id" element={<BlogEditPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/recipe/:id" element={<RecipeDetail />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/blog" element={<BlogPage />} />
+                <Route path="/blog/:id" element={<BlogDetailPage />} />
+                <Route path="/blog/create" element={<BlogCreatePage />} />
+                <Route path="/blog/edit/:id" element={<BlogEditPage />} />
+                <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </main>
             <Footer />
           </div>
-        </Router>
-      </RecipeProvider>
-    </AuthProvider>
+        </RecipeProvider>
+      </AuthProvider>
+    </Router>
   );
-};
+}
 
 export default App;
