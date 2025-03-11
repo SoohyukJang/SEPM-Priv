@@ -1,17 +1,16 @@
-import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, query, where, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove} from 'firebase/firestore';
 import { app } from '../firebase/config';
 
-const API_KEY = '30086c984c1f431a9cf0c27760c850f2';
-const API_BASE_URL = 'https://api.spoonacular.com/recipes';
-
+const API_KEY = 'eeb775beabdd459eb5f8e5983978fff1';
+const BASE_URL = 'https://api.spoonacular.com/recipes';
 const db = getFirestore(app);
 
 // Sample data to use when API calls fail
 const sampleRecipes = [
   {
     id: 715538,
-    title: "Pasta with Garlic, Scallions, Cauliflower & Breadcrumbs",
-    image: "https://spoonacular.com/recipeImages/715538-312x231.jpg",
+    title: "What to make for dinner tonight?? Bruschetta Style Pork & Pasta",
+    image: "https://img.spoonacular.com/recipes/715538-312x231.jpg",
     readyInMinutes: 45,
     servings: 2,
     vegetarian: true,
@@ -52,139 +51,34 @@ const sampleRecipes = [
     glutenFree: true,
     dairyFree: true
   },
-  {
-    id: 782622,
-    title: "Chocolate Peanut Butter Smoothie",
-    image: "https://spoonacular.com/recipeImages/782622-312x231.jpg",
-    readyInMinutes: 5,
-    servings: 1,
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: false
-  },
-  {
-    id: 794349,
-    title: "Broccoli and Chickpea Rice Salad",
-    image: "https://spoonacular.com/recipeImages/794349-312x231.jpg",
-    readyInMinutes: 45,
-    servings: 6,
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true
-  },
-  {
-    id: 715415,
-    title: "Red Lentil Soup with Chicken and Turnips",
-    image: "https://spoonacular.com/recipeImages/715415-312x231.jpg",
-    readyInMinutes: 55,
-    servings: 8,
-    vegetarian: false,
-    vegan: false,
-    glutenFree: true,
-    dairyFree: true
-  },
-  {
-    id: 716406,
-    title: "Asparagus and Pea Soup",
-    image: "https://spoonacular.com/recipeImages/716406-312x231.jpg",
-    readyInMinutes: 30,
-    servings: 2,
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true
-  },
-  {
-    id: 644387,
-    title: "Garlicky Kale",
-    image: "https://spoonacular.com/recipeImages/644387-312x231.jpg", 
-    readyInMinutes: 45,
-    servings: 2,
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true
-  },
-  {
-    id: 715446,
-    title: "Slow Cooker Beef Stew",
-    image: "https://spoonacular.com/recipeImages/715446-312x231.jpg",
-    readyInMinutes: 490,
-    servings: 6,
-    vegetarian: false,
-    vegan: false,
-    glutenFree: true,
-    dairyFree: true
-  },
-  {
-    id: 782601,
-    title: "Red Kidney Bean Jambalaya",
-    image: "https://spoonacular.com/recipeImages/782601-312x231.jpg",
-    readyInMinutes: 45,
-    servings: 6,
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true
-  },
-  {
-    id: 795751,
-    title: "Chicken Fajita Stuffed Bell Pepper",
-    image: "https://spoonacular.com/recipeImages/795751-312x231.jpg",
-    readyInMinutes: 45,
-    servings: 6,
-    vegetarian: false,
-    vegan: false,
-    glutenFree: true,
-    dairyFree: false
-  },
-  {
-    id: 766453,
-    title: "Hummus and Veggies Wrap",
-    image: "https://spoonacular.com/recipeImages/766453-312x231.jpg",
-    readyInMinutes: 45,
-    servings: 2,
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true
-  },
-  {
-    id: 716627,
-    title: "Easy Homemade Rice and Beans",
-    image: "https://spoonacular.com/recipeImages/716627-312x231.jpg",
-    readyInMinutes: 35,
-    servings: 2,
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true
-  },
-  {
-    id: 798400,
-    title: "Spicy Black Bean and Corn Burgers",
-    image: "https://spoonacular.com/recipeImages/798400-312x231.jpg",
-    readyInMinutes: 25,
-    servings: 12,
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true
-  },
-  {
-    id: 646738,
-    title: "Grilled Salmon with Avocado Greek Salsa and Orzo",
-    image: "https://spoonacular.com/recipeImages/646738-312x231.jpg", 
-    readyInMinutes: 15,
-    servings: 4,
-    vegetarian: false,
-    vegan: false,
-    glutenFree: false,
-    dairyFree: true
-  }
+  // More sample recipes...
 ];
+
+// Cache for storing API responses
+const apiCache = {
+  searches: {},
+  recipes: {},
+  recommendations: {}
+};
+
+// Check if we have network connection
+const isOnline = () => {
+  return navigator.onLine;
+};
+
+// Helper to construct API URLs with params
+const buildApiUrl = (endpoint, params = {}) => {
+  const url = new URL(`${BASE_URL}/${endpoint}`);
+  url.searchParams.append('apiKey', API_KEY);
+  
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.append(key, value);
+    }
+  });
+  
+  return url.toString();
+};
 
 // Filter sample recipes based on user filters
 const filterSampleRecipes = (filters) => {
@@ -214,63 +108,75 @@ const filterSampleRecipes = (filters) => {
   return filtered;
 };
 
+// Helper to create cache key from filters
+const createCacheKey = (filters) => {
+  return JSON.stringify(filters);
+};
 
 export const fetchRecipes = async (filters) => {
   try {
-    const { query, cuisine, diet, intolerances, maxReadyTime, sort } = filters;
+    const cacheKey = createCacheKey(filters);
     
-    // Construct URL properly using URL constructor
-    const url = new URL(API_BASE_URL + "/complexSearch");
-    
-    // Add parameters
-    url.searchParams.append("apiKey", API_KEY);
-    url.searchParams.append("number", "50");
-    
-    if (query) url.searchParams.append("query", query);
-    if (cuisine) url.searchParams.append("cuisine", cuisine);
-    if (diet) url.searchParams.append("diet", diet);
-    if (intolerances && intolerances.length > 0) url.searchParams.append("intolerances", intolerances.join(','));
-    if (maxReadyTime) url.searchParams.append("maxReadyTime", maxReadyTime);
-    
-    switch (sort) {
-      case 'popularity':
-        url.searchParams.append("sort", "popularity");
-        break;
-      case 'healthiness':
-        url.searchParams.append("sort", "healthiness");
-        break;
-      case 'time':
-        url.searchParams.append("sort", "time");
-        break;
-      default:
-        url.searchParams.append("sort", "popularity");
+    // Check cache first
+    if (apiCache.searches[cacheKey]) {
+      console.log("Using cached search results");
+      return apiCache.searches[cacheKey];
     }
     
-    // Add additional information about recipes
-    url.searchParams.append("addRecipeInformation", "true");
-    url.searchParams.append("fillIngredients", "true");
-    
-    console.log("Fetching recipes with URL:", url.toString());
-    
-    try {
-      const response = await fetch(url.toString());
-      
-      if (!response.ok) {
-        console.warn("API request failed with status " + response.status + ". Using sample data.");
-        console.info("This is expected behavior due to Spoonacular API limits. Using local sample data instead.");
-        return filterSampleRecipes(filters);
-      }
-      
-      const data = await response.json();
-      console.log("API response received, results count:", data.results ? data.results.length : 0);
-      return data.results || [];
-    } catch (error) {
-      console.error('Error fetching recipes:', error);
-      console.warn('Using sample data for search');
+    // If offline, use sample data
+    if (!isOnline()) {
+      console.log("Offline mode: Using sample data");
       return filterSampleRecipes(filters);
     }
+    
+    const { query, cuisine, diet, intolerances, maxReadyTime, sort, offset, number = 10 } = filters;
+    
+    // Build API params
+    const params = {
+      query,
+      cuisine,
+      diet,
+      intolerances,
+      maxReadyTime,
+      sort,
+      offset,
+      number,
+      addRecipeInformation: true,
+      fillIngredients: true
+    };
+    
+    // Add additional filters if provided
+    if (filters.includeIngredients) params.includeIngredients = filters.includeIngredients;
+    if (filters.excludeIngredients) params.excludeIngredients = filters.excludeIngredients;
+    if (filters.type) params.type = filters.type;
+    if (filters.minCalories) params.minCalories = filters.minCalories;
+    if (filters.maxCalories) params.maxCalories = filters.maxCalories;
+    if (filters.minProtein) params.minProtein = filters.minProtein;
+    if (filters.maxProtein) params.maxProtein = filters.maxProtein;
+    if (filters.minCarbs) params.minCarbs = filters.minCarbs;
+    if (filters.maxCarbs) params.maxCarbs = filters.maxCarbs;
+    if (filters.minFat) params.minFat = filters.minFat;
+    if (filters.maxFat) params.maxFat = filters.maxFat;
+    
+    const url = buildApiUrl('complexSearch', params);
+    console.log("Fetching recipes from API:", url);
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error("API request failed with status: " + response.status);
+    }
+    
+    const data = await response.json();
+    const results = data.results || [];
+    
+    // Cache the results
+    apiCache.searches[cacheKey] = results;
+    
+    return results;
   } catch (error) {
-    console.error('Error in fetchRecipes:', error);
+    console.error("Error in fetchRecipes:", error);
+    // Fallback to sample data
     return filterSampleRecipes(filters);
   }
 };
@@ -279,25 +185,50 @@ export const searchRecipes = fetchRecipes;
 
 export const fetchRecipeById = async (recipeId) => {
   try {
-    const url = new URL(API_BASE_URL + "/" + recipeId + "/information");
-    url.searchParams.append("apiKey", API_KEY);
-    url.searchParams.append("includeNutrition", "true");
-    
-    try {
-      const response = await fetch(url.toString());
-      
-      if (!response.ok) {
-        console.warn("API request failed with status " + response.status);
-        throw new Error("Failed to fetch recipe with ID " + recipeId);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching recipe with ID " + recipeId + ":", error);
-      throw error;
+    // Check cache first
+    if (apiCache.recipes[recipeId]) {
+      console.log(`Using cached recipe data for ID: ${recipeId}`);
+      return apiCache.recipes[recipeId];
     }
+    
+    // If offline, use sample data
+    if (!isOnline()) {
+      console.log("Offline mode: Using sample data for recipe details");
+      const recipe = sampleRecipes.find(r => r.id === parseInt(recipeId));
+      if (recipe) return recipe;
+      throw new Error("Recipe not found in sample data");
+    }
+    
+    // Fetch from API
+    const params = {
+      includeNutrition: true
+    };
+    
+    const url = buildApiUrl(`${recipeId}/information`, params);
+    console.log(`Fetching recipe details for ID: ${recipeId}`);
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error("API request failed with status: " + response.status);
+    }
+    
+    const recipe = await response.json();
+    
+    // Cache the recipe
+    apiCache.recipes[recipeId] = recipe;
+    
+    return recipe;
   } catch (error) {
-    console.error("Error in fetchRecipeById:", error);
+    console.error(`Error fetching recipe ${recipeId}:`, error);
+    
+    // Try to find in sample data as fallback
+    const recipe = sampleRecipes.find(r => r.id === parseInt(recipeId));
+    
+    if (recipe) {
+      return recipe;
+    }
+    
     throw error;
   }
 };
@@ -306,49 +237,79 @@ export const getRecipeById = fetchRecipeById;
 
 export const getSimilarRecipes = async (recipeId) => {
   try {
-    const url = new URL(API_BASE_URL + "/" + recipeId + "/similar");
-    url.searchParams.append("apiKey", API_KEY);
-    url.searchParams.append("number", "4");
-    
-    try {
-      const response = await fetch(url.toString());
-      
-      if (!response.ok) {
-        console.warn("API request failed with status " + response.status);
-        throw new Error("Failed to fetch similar recipes for ID " + recipeId);
-      }
-      
-      const similarRecipes = await response.json();
-      
-      // Fetch full details for each similar recipe
-      const detailedRecipes = await Promise.all(
-        similarRecipes.map(recipe => fetchRecipeById(recipe.id))
-      );
-      
-      return detailedRecipes;
-    } catch (error) {
-      console.error("Error fetching similar recipes for ID " + recipeId + ":", error);
-      throw error;
+    // If offline, use sample data
+    if (!isOnline()) {
+      console.log("Offline mode: Using sample data for similar recipes");
+      const shuffled = [...sampleRecipes].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, 4);
     }
+    
+    const url = buildApiUrl(`${recipeId}/similar`, { number: 4 });
+    console.log(`Fetching similar recipes for ID: ${recipeId}`);
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error("API request failed with status: " + response.status);
+    }
+    
+    const similarRecipes = await response.json();
+    
+    // Fetch full details for each similar recipe
+    const detailedRecipes = await Promise.all(
+      similarRecipes.map(async (recipe) => {
+        try {
+          return await fetchRecipeById(recipe.id);
+        } catch (error) {
+          console.error(`Error fetching details for similar recipe ${recipe.id}:`, error);
+          return recipe; // Return basic info if details fetch fails
+        }
+      })
+    );
+    
+    return detailedRecipes;
   } catch (error) {
     console.error("Error in getSimilarRecipes:", error);
-    throw error;
+    // Fallback to sample data
+    const shuffled = [...sampleRecipes].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, 4);
   }
 };
 
 export const getRecommendations = async (userProfile) => {
   try {
+    // Create a unique cache key based on user profile
+    const cacheKey = userProfile ? JSON.stringify(userProfile) : 'default';
+    
+    // Check cache first
+    if (apiCache.recommendations[cacheKey]) {
+      console.log("Using cached recommendations");
+      return apiCache.recommendations[cacheKey];
+    }
+    
+    // If offline, use sample data
+    if (!isOnline()) {
+      console.log("Offline mode: Using sample data for recommendations");
+      return filterSampleRecipes({});
+    }
+    
     // Default parameters if user profile is not available
     let diet = '';
     let intolerances = [];
     let query = '';
+    let maxCalories = null;
+    let minProtein = null;
     
     // If user profile exists, use it to customize recommendations
     if (userProfile) {
       if (userProfile.goal === 'Weight Loss') {
         diet = 'low-calorie';
+        maxCalories = Math.round(userProfile.tdee * 0.8); // 20% deficit
       } else if (userProfile.goal === 'Build Muscle') {
         diet = 'high-protein';
+        minProtein = 25; // Minimum 25g protein per serving
+      } else if (userProfile.goal === 'Maintain Weight') {
+        // Use TDEE as calories target
       }
       
       intolerances = userProfile.allergies || [];
@@ -358,12 +319,21 @@ export const getRecommendations = async (userProfile) => {
     const filters = {
       query,
       diet,
-      intolerances,
+      intolerances: intolerances.join(','),
       sort: 'popularity',
-      maxReadyTime: 60
+      maxReadyTime: 60,
+      number: 10,
+      maxCalories,
+      minProtein,
+      addRecipeInformation: true
     };
     
-    return await fetchRecipes(filters);
+    const results = await fetchRecipes(filters);
+    
+    // Cache the recommendations
+    apiCache.recommendations[cacheKey] = results;
+    
+    return results;
   } catch (error) {
     console.error('Error getting recommendations:', error);
     return filterSampleRecipes({});
@@ -386,6 +356,8 @@ export const saveRecipe = async (userId, recipe) => {
         savedRecipes: arrayUnion(recipe)
       });
     }
+    
+    return true;
   } catch (error) {
     console.error('Error saving recipe:', error);
     throw error;
@@ -407,6 +379,8 @@ export const removeRecipe = async (userId, recipeId) => {
         });
       }
     }
+    
+    return true;
   } catch (error) {
     console.error('Error removing recipe:', error);
     throw error;
@@ -426,5 +400,80 @@ export const getSavedRecipes = async (userId) => {
   } catch (error) {
     console.error('Error getting saved recipes:', error);
     throw error;
+  }
+};
+
+// Clear cache
+export const clearCache = () => {
+  apiCache.searches = {};
+  apiCache.recipes = {};
+  apiCache.recommendations = {};
+  console.log("API cache cleared");
+};
+
+// New function to check if a recipe is saved by user
+export const isRecipeSaved = async (userId, recipeId) => {
+  try {
+    if (!userId) return false;
+    
+    const savedRecipes = await getSavedRecipes(userId);
+    return savedRecipes.some(recipe => recipe.id === parseInt(recipeId));
+  } catch (error) {
+    console.error('Error checking if recipe is saved:', error);
+    return false;
+  }
+};
+
+// New function for advanced recipe search
+export const advancedRecipeSearch = async (filters) => {
+  return fetchRecipes({
+    ...filters,
+    addRecipeInformation: true,
+    fillIngredients: true
+  });
+};
+
+// New function to search by ingredients
+export const searchByIngredients = async (ingredients, number = 10) => {
+  try {
+    if (!isOnline()) {
+      console.log("Offline mode: Using sample data for ingredients search");
+      return filterSampleRecipes({});
+    }
+    
+    const params = {
+      ingredients: ingredients.join(','),
+      number,
+      ranking: 1, // Maximize used ingredients
+      ignorePantry: true
+    };
+    
+    const url = buildApiUrl('findByIngredients', params);
+    console.log("Searching recipes by ingredients:", url);
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error("API request failed with status: " + response.status);
+    }
+    
+    const results = await response.json();
+    
+    // Get full recipe details for each result
+    const detailedRecipes = await Promise.all(
+      results.map(async (recipe) => {
+        try {
+          return await fetchRecipeById(recipe.id);
+        } catch (error) {
+          console.error(`Error fetching details for recipe ${recipe.id}:`, error);
+          return recipe; // Return basic info if details fetch fails
+        }
+      })
+    );
+    
+    return detailedRecipes;
+  } catch (error) {
+    console.error("Error in searchByIngredients:", error);
+    return filterSampleRecipes({});
   }
 };
